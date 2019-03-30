@@ -61,7 +61,7 @@ end );
 
 ----------------------------------------------------------------------------------------------------
 -- func: msg
--- desc: Prints out a message with the Nomad tag at the front.
+-- desc: Prints out a message with the addon name at the front.
 ----------------------------------------------------------------------------------------------------
 local function msg(s)
     local txt = '\31\200[\31\05' .. _addon.name .. '\31\200]\31\130 ' .. s;
@@ -165,7 +165,6 @@ ashita.register_event('render', function()
         targetInfo = string.format("T: %s [%i]", target:GetTargetName(), target:GetTargetServerId());
         targetInfo = string.format("%s\n(%.3f, %.3f, %.3f) R%i", targetInfo, tPos.X, tPos.Y, tPos.Z, tPos.R);
 
-        -- targetInfo = Entity:GetType(tIndex);
     end
 
     local output = zoneInfo;
