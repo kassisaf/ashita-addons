@@ -3,6 +3,7 @@ _addon.name     = 'dinfo';
 _addon.version  = '0.0.1';
 
 require 'common'
+require 'ffxi.enums'
 
 ----------------------------------------------------------------------------------------------------
 -- Configurations
@@ -14,11 +15,11 @@ local default_config =
         family      = 'Arial',
         size        = 10,
         color       = 0xFFFFFFFF,
-        position    = { -700, 165 },
+        position    = { -721, -232 },
         bgcolor     = 0x60000000,
         bgvisible   = true
     },
-    useLocalPos = true;
+    fastMode = true;
 };
 local dinfo_config = default_config;
 
@@ -42,8 +43,6 @@ ashita.register_event('load', function()
     f:GetBackground():SetColor(dinfo_config.font.bgcolor);
     f:GetBackground():SetVisibility(dinfo_config.font.bgvisible);
 
-    useLocalPos = dinfo_config.useLocalPos;
-
 end);
 
 ----------------------------------------------------------------------------------------------------
@@ -61,6 +60,39 @@ ashita.register_event('unload', function()
     AshitaCore:GetFontManager():Delete('__dinfo_addon');
 end );
 
+----------------------------------------------------------------------------------------------------
+-- func: msg
+-- desc: Prints out a message with the Nomad tag at the front.
+----------------------------------------------------------------------------------------------------
+local function msg(s)
+    local txt = '\31\200[\31\05' .. _addon.name .. '\31\200]\31\130 ' .. s;
+    print(txt);
+end
+
+----------------------------------------------------------------------------------------------------
+-- func: command
+-- desc: Event called when a command was entered.
+----------------------------------------------------------------------------------------------------
+ashita.register_event('command', function(command, ntype)
+    -- Get the arguments of the command
+    local args = command:args();
+    if (not (args[1] == "/dinfo" or args[1] == "/di")) then
+        return false;
+    end
+
+    -- Toggles "fast mode"
+    if (args[2] == 'f' or args[2] == 'fast') then
+        dinfo_config.fastMode = not dinfo_config.fastMode;
+        if (dinfo_config.fastMode) then
+            msg('"Fast mode" is now ENABLED (prefer local position data)')
+        else
+            msg('"Fast mode" is now DISABLED (prefer verified position data)')
+        end
+        return true;
+    end
+
+    return true;
+end);
 
 ----------------------------------------------------------------------------------------------------
 -- func: getRotation
@@ -68,7 +100,7 @@ end );
 ----------------------------------------------------------------------------------------------------
 local function getRotation(entity, index)
     local yaw;
-    if (useLocalPos) then
+    if (dinfo_config.fastMode) then
         yaw = entity:GetLocalYaw(index)
     else
         yaw = entity:GetLastYaw(index)
@@ -114,7 +146,7 @@ ashita.register_event('render', function()
         local tIndex    = target:GetTargetIndex()
         local tEntity   = GetEntity(tIndex)
         local tPos;
-        if (useLocalPos) then
+        if (dinfo_config.fastMode) then
             tPos = {
                 X = Entity:GetLocalX(tIndex),
                 Y = Entity:GetLocalY(tIndex),
@@ -133,6 +165,8 @@ ashita.register_event('render', function()
         -- TODO: change color of output below based on npc/player/mob (use existing targetType enum?)
         targetInfo = string.format("T: %s [%i]", target:GetTargetName(), target:GetTargetServerId());
         targetInfo = string.format("%s\n(%.3f, %.3f, %.3f) R%i", targetInfo, tPos.X, tPos.Y, tPos.Z, tPos.R);
+
+        -- targetInfo = Entity:GetType(tIndex);
     end
 
     local output = zoneInfo;
@@ -141,4 +175,5 @@ ashita.register_event('render', function()
     end
 
     f:SetText(output);
+
 end);
