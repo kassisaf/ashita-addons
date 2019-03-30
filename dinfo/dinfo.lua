@@ -3,7 +3,6 @@ _addon.name     = 'dinfo';
 _addon.version  = '0.0.1';
 
 require 'common'
-require 'ffxi.enums'
 
 ----------------------------------------------------------------------------------------------------
 -- Configurations
