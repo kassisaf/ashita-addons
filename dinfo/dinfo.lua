@@ -3,7 +3,6 @@ _addon.name     = 'dinfo';
 _addon.version  = '0.0.1';
 
 require 'common'
-require 'ffxi.targets'
 
 ----------------------------------------------------------------------------------------------------
 -- Configurations
@@ -16,9 +15,10 @@ local default_config =
         size        = 10,
         color       = 0xFFFFFFFF,
         position    = { -700, 165 },
-        bgcolor     = 0x80000000,
+        bgcolor     = 0x60000000,
         bgvisible   = true
-    }
+    },
+    useLocalPos = true;
 };
 local dinfo_config = default_config;
 
@@ -27,10 +27,10 @@ local dinfo_config = default_config;
 -- desc: Event called when the addon is being loaded.
 ----------------------------------------------------------------------------------------------------
 ashita.register_event('load', function()
-    -- Attempt to load the fps configuration..
+    -- Attempt to load the config file
     dinfo_config = ashita.settings.load_merged(_addon.path .. 'settings/settings.json', dinfo_config);
 
-    -- Create our font object..
+    -- Create our font object
     local f = AshitaCore:GetFontManager():Create('__dinfo_addon');
     f:SetColor(dinfo_config.font.color);
     f:SetFontFamily(dinfo_config.font.family);
@@ -41,6 +41,9 @@ ashita.register_event('load', function()
     f:SetVisibility(true);
     f:GetBackground():SetColor(dinfo_config.font.bgcolor);
     f:GetBackground():SetVisibility(dinfo_config.font.bgvisible);
+
+    useLocalPos = dinfo_config.useLocalPos;
+
 end);
 
 ----------------------------------------------------------------------------------------------------
@@ -64,7 +67,14 @@ end );
 -- desc: Returns the current heading of an entity in degrees
 ----------------------------------------------------------------------------------------------------
 local function getRotation(entity, index)
-    local degrees = entity:GetLocalYaw(index) * (180/math.pi) + 90
+    local yaw;
+    if (useLocalPos) then
+        yaw = entity:GetLocalYaw(index)
+    else
+        yaw = entity:GetLastYaw(index)
+    end
+
+    local degrees = yaw * (180/math.pi) + 90
     -- Correct for negative yaw
     if (degrees > 360) then
         degrees = degrees - 360;
@@ -80,7 +90,7 @@ end
 -- desc: Event called when the addon is being rendered.
 ----------------------------------------------------------------------------------------------------
 ashita.register_event('render', function()
-    -- Get the font object..
+    -- Get the font object
     local f = AshitaCore:GetFontManager():Get('__dinfo_addon');
     if (f == nil) then return; end
 
@@ -91,45 +101,44 @@ ashita.register_event('render', function()
     local zoneId    = party:GetMemberZone(0);
     local zoneName  = AshitaCore:GetResourceManager():GetString('areas', zoneId);
     local zoneInfo  = string.format("%s (%s)", zoneName, zoneId)
-    -- Player info
-    local player    = AshitaCore:GetDataManager():GetPlayer();
-    local pIndex    = party:GetMemberTargetIndex(0)
-    local pPos      = {
-        X = Entity:GetLocalX(pIndex),
-        Y = Entity:GetLocalY(pIndex),
-        Z = Entity:GetLocalZ(pIndex),
-        R = getRotation(Entity, pIndex)
-    }
+
     -- Target info
     local target    = AshitaCore:GetDataManager():GetTarget();
-    local tEntity   = GetEntity(target:GetTargetIndex())
     local targetInfo;
-    -- Target info should be blank unless we have a valid target
-    target = ashita.ffxi.targets.get_target('t');
-    if (target == nil or target.Name == '' or target.TargetIndex == 0) then
-        targetInfo = ''
-    else
-        local tPos      = {
-            X = tEntity.Movement.LocalPosition.X,
-            Y = tEntity.Movement.LocalPosition.Y,
-            Z = tEntity.Movement.LocalPosition.Z,
-            R = 0,
-        }
-        -- TODO: change color of output below based on npc/player/mob (use existing targetType enum?)
 
-        -- Append the name..
-        targetInfo = string.format(' T: %s [%d]', target.Name, target.ServerId);
-        -- Append the position
-        targetInfo = string.format('%s \n  (%.3f, %.3f, %.3f) R%.2f', targetInfo, 
-            tPos.X, 
-            tPos.Y, 
-            tPos.Z, 
-            tPos.R);
+    -- Target info should be blank unless we have a valid target
+    if not (target:GetTargetEntityPointer() == nil 
+        or target:GetTargetName() == nil
+        or target:GetTargetServerId() == 0 ) then
+
+        local tIndex    = target:GetTargetIndex()
+        local tEntity   = GetEntity(tIndex)
+        local tPos;
+        if (useLocalPos) then
+            tPos = {
+                X = Entity:GetLocalX(tIndex),
+                Y = Entity:GetLocalY(tIndex),
+                Z = Entity:GetLocalZ(tIndex),
+                R = getRotation(Entity, tIndex)
+            }
+        else
+            tPos = {
+                X = Entity:GetLastX(tIndex),
+                Y = Entity:GetLastY(tIndex),
+                Z = Entity:GetLastZ(tIndex),
+                R = getRotation(Entity, tIndex)
+            }
+        end
+
+        -- TODO: change color of output below based on npc/player/mob (use existing targetType enum?)
+        targetInfo = string.format("T: %s [%i]", target:GetTargetName(), target:GetTargetServerId());
+        targetInfo = string.format("%s\n(%.3f, %.3f, %.3f) R%i", targetInfo, tPos.X, tPos.Y, tPos.Z, tPos.R);
     end
 
-    -- Append player coords
-    -- output = string.format("%s\n (%.3f, %.3f, %.3f) [%i]", output, pPos.X, pPos.Y, pPos.Z, pPos.R);
+    local output = zoneInfo;
+    if (targetInfo ~= nil) then
+        output = string.format("%s\n%s", output, targetInfo);
+    end
 
-
-    f:SetText(zoneInfo .. '\n' .. pPos.R);
+    f:SetText(output);
 end);
