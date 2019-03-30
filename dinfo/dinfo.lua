@@ -58,38 +58,22 @@ ashita.register_event('unload', function()
     AshitaCore:GetFontManager():Delete('__dinfo_addon');
 end );
 
----------------------------------------------------------------------------------------------------
--- func: incoming_packet
--- desc: Called when our addon receives an incoming packet.
----------------------------------------------------------------------------------------------------
--- ashita.register_event('incoming_packet', function(id, size, data)
 
---     -- PC or NPC update packet
---     if (id == 0x00D or id == 0x00E) then
---         local packet = data:totable()
---         local id = packet[0x04]
---         local index = packet[0x08]
---         local pos = packet[0x0C]
---         local rot = packet[0x0B]
---         local status = packet[0x1F]
---         local hpp = packet[0x1E]
+----------------------------------------------------------------------------------------------------
+-- func: getRotation
+-- desc: Returns the current heading of an entity in degrees
+----------------------------------------------------------------------------------------------------
+local function getRotation(entity, index)
+    local degrees = entity:GetLocalYaw(index) * (180/math.pi) + 90
+    -- Correct for negative yaw
+    if (degrees > 360) then
+        degrees = degrees - 360;
+    elseif (degrees < 0) then
+        degrees = degrees + 360;
+    end
 
---         -- PC specific info
---         if (id == 0x00D) then
---             local movespeed = packet[0x1C]
---         end
-
---         -- NPC specific info
---         if (id == 0x00E) then
---             local modelId = packet[0x32]
---             local claimId = packet[0x2C]
---         end
-
---     end
-
-
---     return false;
--- end);
+    return degrees;
+end
 
 ----------------------------------------------------------------------------------------------------
 -- func: render
@@ -100,44 +84,52 @@ ashita.register_event('render', function()
     local f = AshitaCore:GetFontManager():Get('__dinfo_addon');
     if (f == nil) then return; end
 
-    local pentity   = AshitaCore:GetDataManager():GetEntity();
-    local player    = AshitaCore:GetDataManager():GetPlayer();
-    local target    = AshitaCore:GetDataManager():GetTarget();
-    local tentity   = GetEntity(target:GetTargetIndex())
+    -- Set up some variables for the info we'll want to display
+    local Entity    = AshitaCore:GetDataManager():GetEntity();
     local party     = AshitaCore:GetDataManager():GetParty();
+    -- Zone info
     local zoneId    = party:GetMemberZone(0);
     local zoneName  = AshitaCore:GetResourceManager():GetString('areas', zoneId);
-
-    -- TODO: Zone name, id, and weather, maybe timestamp?
-
-    local staticInfo = zoneName .. ' (' .. zoneId .. ')';
-
+    local zoneInfo  = string.format("%s (%s)", zoneName, zoneId)
+    -- Player info
+    local player    = AshitaCore:GetDataManager():GetPlayer();
+    local pIndex    = party:GetMemberTargetIndex(0)
+    local pPos      = {
+        X = Entity:GetLocalX(pIndex),
+        Y = Entity:GetLocalY(pIndex),
+        Z = Entity:GetLocalZ(pIndex),
+        R = getRotation(Entity, pIndex)
+    }
+    -- Target info
+    local target    = AshitaCore:GetDataManager():GetTarget();
+    local tEntity   = GetEntity(target:GetTargetIndex())
     local targetInfo;
-
-    -- Ensure we have a valid target..
-    local target = ashita.ffxi.targets.get_target('t');
+    -- Target info should be blank unless we have a valid target
+    target = ashita.ffxi.targets.get_target('t');
     if (target == nil or target.Name == '' or target.TargetIndex == 0) then
         targetInfo = ''
     else
+        local tPos      = {
+            X = tEntity.Movement.LocalPosition.X,
+            Y = tEntity.Movement.LocalPosition.Y,
+            Z = tEntity.Movement.LocalPosition.Z,
+            R = 0,
+        }
         -- TODO: change color of output below based on npc/player/mob (use existing targetType enum?)
 
         -- Append the name..
-        targetInfo = string.format('\n %s', target.Name);
-        
-        -- Append the server id (decimal)..
-        targetInfo = string.format(' %s [%d]', targetInfo, target.ServerId);
-
-        -- Append the target's position
-        -- tposX = AshitaCore:GetDataManager():GetTarget()GetPositionX();
-
-        targetInfo = string.format('%s \n (%.3f %.3f %.3f), R%i', targetInfo, 
-            tentity.Movement.LocalPosition.X, 
-            tentity.Movement.LocalPosition.Y, 
-            tentity.Movement.LocalPosition.Z, 
-            0);
+        targetInfo = string.format(' T: %s [%d]', target.Name, target.ServerId);
+        -- Append the position
+        targetInfo = string.format('%s \n  (%.3f, %.3f, %.3f) R%.2f', targetInfo, 
+            tPos.X, 
+            tPos.Y, 
+            tPos.Z, 
+            tPos.R);
     end
-    
-    -- Update the text..
-    str = string.format(' %s %s', staticInfo, targetInfo);
-    f:SetText(str);
+
+    -- Append player coords
+    -- output = string.format("%s\n (%.3f, %.3f, %.3f) [%i]", output, pPos.X, pPos.Y, pPos.Z, pPos.R);
+
+
+    f:SetText(zoneInfo .. '\n' .. pPos.R);
 end);
