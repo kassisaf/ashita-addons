@@ -3,7 +3,7 @@
 
 _addon.author   = 'Zuri';
 _addon.name     = 'dinfo';
-_addon.version  = '0.0.1';
+_addon.version  = '0.0.2';
 
 require 'common'
 
@@ -84,11 +84,18 @@ ashita.register_event('command', function(command, ntype)
 
     -- Toggles "fast mode"
     if (args[2] == 'f' or args[2] == 'fast') then
-        dinfo_config.fastMode = not dinfo_config.fastMode;
+        if (args[3] == nil) then
+            dinfo_config.fastMode = not dinfo_config.fastMode;
+        elseif (args[3] == "on" or args[3] == "true") then
+            dinfo_config.fastMode = true;
+        elseif (args[3] == "off" or args[3] == "false") then
+            dinfo_config.fastMode = false;
+        end
+
         if (dinfo_config.fastMode) then
             msg('"Fast mode" is now ENABLED (prefer local position data)')
         else
-            msg('"Fast mode" is now DISABLED (prefer verified position data)')
+            msg('"Fast mode" is now DISABLED (prefer last position data)')
         end
         return true;
     end
